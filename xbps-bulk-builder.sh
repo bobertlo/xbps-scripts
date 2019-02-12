@@ -1,5 +1,17 @@
 #!/bin/bash -e
 
+# [-b builddir] where xbulk configures itself and the build output is logged
+#               default: clean out and (re)use $PWD/builddir
+
+# [-d distdir] $PWD/void-packages
+# [-h hostdir] $PWD/hostdir
+# [-m masterdir] $PWD/chroot
+
+# [-a target-arch] not set by default (xbps-src uses host arch)
+# [-B bootstrap arch] not set by default (not well tested)
+
+# [-t] enable masterdir overlayfs
+# [-N] disable remote dependency resolution
 
 VOID_PACKAGES_URL=${VOID_PACKAGES_URL:-git://github.com/void-linux/void-packages.git}
 XBPS_BULK_URL=${XBPS_BULK_URL:-git://github.com/void-linux/xbps-bulk.git}
@@ -15,7 +27,7 @@ XB_OVERLAYFS=
 
 USAGE="Usage: $0 [-a target] [-B boostrap] [-t|-N] [-D|-h|-m dir] [-b builddir]"
 
-while getopts a:B:b:D:d:h:m:Nt OPT; do
+while getopts a:B:b:d:h:m:Nt OPT; do
 	case "$OPT" in
 	a)
 		XB_CROSS="-a $OPTARG"
