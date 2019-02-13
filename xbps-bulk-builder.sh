@@ -9,6 +9,8 @@
 
 # [-a target-arch] not set by default (xbps-src uses host arch)
 # [-B bootstrap arch] not set by default (not well tested)
+# [-c conf] conf file for xbps-src/etc/conf default:none
+# [-R repo] add repo to the top of the list (for xbps-checkvers)
 
 # [-t] enable masterdir overlayfs
 # [-N] disable remote dependency resolution
@@ -21,13 +23,16 @@ DXPB_BULKDIR=${DXPB_BULKDIR:-$PWD/xbps-bulk}
 DXPB_MASTERDIR=${DXPB_MASTERDIR:-$PWD/chroot}
 DXPB_HOSTDIR=${DXPB_HOSTDIR:-$PWD/hostdir}
 
+XS_CONF=
+
+XB_REPO=
 XB_CROSS=
 XB_LOCAL=
 XB_OVERLAYFS=
 
-USAGE="Usage: $0 [-a target] [-B boostrap] [-t|-N] [-D|-h|-m dir] [-b builddir]"
+USAGE="Usage: $0 [-a target] [-B boostrap] [-c conf] [-R repo] [-t|-N] [-D|-h|-m dir] [-b builddir]"
 
-while getopts a:B:b:d:h:m:Nt OPT; do
+while getopts a:B:b:c:d:h:m:NR:t OPT; do
 	case "$OPT" in
 	a)
 		XB_CROSS="-a $OPTARG"
@@ -47,6 +52,14 @@ while getopts a:B:b:d:h:m:Nt OPT; do
 		}
 		DXPB_DISTDIR=$(realpath "$OPTARG")
 		;;
+	c)
+		[ -f "$OPTARG" ] || {
+			printf "ERROR: Cannot find DISTDIR "
+			printf "'%s': No such file or directory.\n" "$OPTARG"
+			exit 1
+		}
+		XS_CONF=$(realpath "$OPTARG")
+		;;
 	h)
 		[ -d "$OPTARG" ] || {
 			printf "ERROR: Cannot find HOSTDIR "
@@ -65,6 +78,9 @@ while getopts a:B:b:d:h:m:Nt OPT; do
 		;;
 	N)
 		XB_LOCAL=-N
+		;;
+	R)
+		XB_REPO="-R $OPTARG"
 		;;
 	t)
 		XB_OVERLAYFS=-t
@@ -90,7 +106,9 @@ echo "DXPB_DISTDIR: ${DXPB_DISTDIR}"
 echo "DXPB_MASTERDIR: ${DXPB_MASTERDIR}"
 echo "DXPB_HOSTDIR: ${DXPB_HOSTDIR}"
 echo "DXPB_BUILDDIR: ${DXPB_BUILDDIR}"
+echo "XS_CONF: ${XS_CONF}"
 echo
+
 
 git_xbps_bulk() {
 	mkdir -p ${DXPB_BULKDIR}
@@ -116,6 +134,13 @@ git_void_packages() {
 	fi
 }
 
+xbps_src_config() {
+	if [ -n "$XS_CONF" ] ; then
+		echo DXPB: installing xbps-src etc/conf
+		cp "$XS_CONF" ${DXPB_DISTDIR}/etc/conf
+	fi
+}
+
 bootstrap_install() {
 	echo DXPB: Running binary-bootstrap ${DXPB_BOOTSTRAP}
 	${DXPB_DISTDIR}/xbps-src -H ${DXPB_HOSTDIR} -m ${DXPB_MASTERDIR} binary-bootstrap ${DXPB_BOOTSTRAP}
@@ -131,7 +156,7 @@ bulk_conf() {
 	mkdir -p ${DXPB_BUILDDIR}
 	cd ${DXPB_BUILDDIR}
 	${DXPB_BULKDIR}/configure -C
-	${DXPB_BULKDIR}/configure ${XB_CROSS} ${XB_LOCAL} ${XB_OVERLAYFS} -h \
+	${DXPB_BULKDIR}/configure ${XB_CROSS} ${XB_REPO} ${XB_LOCAL} ${XB_OVERLAYFS} -h \
 		${DXPB_HOSTDIR} -d ${DXPB_DISTDIR} -m ${DXPB_MASTERDIR} -t \
 		| tee ${DXPB_BUILDDIR}/bulk-config.log
 }
@@ -151,6 +176,7 @@ bulk_make() {
 bulk_builder() {
 	git_xbps_bulk
 	git_void_packages
+	xbps_src_config
 	bootstrap_install
 	bootstrap_update
 	bulk_conf
